@@ -1,6 +1,6 @@
 # Gone-Phishing
 
-AI-powered Incident Response Plan engine for MSPs.  Takes a free-text incident description, matches it against NIST 800-61 aligned playbooks via semantic search, and generates a role-assigned, time-bound action plan with regulatory notification requirements.
+AI-powered Incident Response Plan engine for MSPs. Takes a free-text incident description, matches it against NIST 800-61 aligned playbooks via semantic search, and generates a role-assigned, time-bound action plan with regulatory notification requirements.
 
 ## What it does
 
@@ -16,13 +16,13 @@ incident description  →  ChromaDB semantic search  →  LLM action plan
 
 ## Stack
 
-| Layer        | Technology                                      |
-|-------------|--------------------------------------------------|
-| API          | FastAPI (Python)                                |
+| Layer        | Technology                                          |
+| ------------ | --------------------------------------------------- |
+| API          | FastAPI (Python)                                    |
 | Vector store | ChromaDB (cosine similarity, sentence-transformers) |
-| LLM          | BYOM — Anthropic, OpenAI, Gemini, or Ollama    |
-| Chat UI      | Built-in, Chainlit, or Open WebUI              |
-| Integrations | ConnectWise Manage (via cw-mcp), N8N webhooks  |
+| LLM          | BYOM — Anthropic, OpenAI, Gemini, or Ollama         |
+| Chat UI      | Built-in, Chainlit, or Open WebUI                   |
+| Integrations | ConnectWise Manage (via cw-mcp), N8N webhooks       |
 
 ## Quick start
 
@@ -51,7 +51,7 @@ The server auto-ingests playbooks on startup.
 gone-phishing/
 ├── server/
 │   ├── app.py                 # FastAPI server + chat UI mounting
-│   ├── config.py              # Centralised env-based configuration
+│   ├── config.py              # Centralised config with startup validation
 │   ├── vector_store.py        # ChromaDB ingestion + semantic search
 │   ├── llm.py                 # Action plan generation (provider-agnostic)
 │   ├── cl_app.py              # Chainlit integration (optional)
@@ -68,21 +68,26 @@ gone-phishing/
 │       ├── cw_tools.py        # ConnectWise Manage (via cw-mcp)
 │       └── n8n_tools.py       # N8N webhook triggers
 │
+├── tests/                     # 60 tests — API, integration, data, adapters
+│   ├── conftest.py            # Shared fixtures (temp ChromaDB, TestClient)
+│   ├── test_api.py            # Endpoint contracts + validation
+│   ├── test_integration.py    # Full lifecycle, error handling, concurrency
+│   ├── test_vector_store.py   # Chunking, search quality, ingestion
+│   ├── test_adapters.py       # BYOM registry, ABC enforcement
+│   └── test_scenarios.py      # Corpus integrity + generator reproducibility
+│
+├── scripts/
+│   └── generate_scenarios.py  # Procedural scenario generator (pure Python)
+│
 ├── playbooks/                 # Drop .md files here → auto-ingested
 │   ├── ransomware.md
 │   ├── phishing.md
 │   ├── data-breach.md
 │   ├── bec.md
-│   ├── severity-classification.md
-│   ├── response-phases.md
-│   ├── communication-plan.md
-│   ├── regulatory-requirements.md
-│   ├── incident-categories.md
-│   ├── incident-report-form.md
-│   └── tabletop-scenarios.md
+│   └── ...                    # 11 total (severity, comms, regulatory, etc.)
 │
 ├── web/
-│   └── index.html             # Built-in chat UI (zero deps)
+│   └── index.html             # Built-in chat UI (marked.js for rendering)
 │
 ├── data/
 │   ├── scenarios.json         # 2,000 generated incident scenarios
@@ -91,6 +96,7 @@ gone-phishing/
 ├── docs/
 │   └── WIRING.md              # Setup guide: chat UIs, CW MCP, N8N, LLM providers
 │
+├── pyproject.toml
 ├── .env.example
 ├── .gitignore
 └── requirements.txt
@@ -98,14 +104,14 @@ gone-phishing/
 
 ## API
 
-| Endpoint          | Method | Description                          |
-|-------------------|--------|--------------------------------------|
-| `/api/incident`   | POST   | Submit incident → get action plan    |
-| `/api/chat`       | POST   | Follow-up questions in chat context  |
-| `/api/search`     | POST   | Direct playbook semantic search      |
-| `/api/playbooks`  | GET    | List all ingested playbooks          |
-| `/api/ingest`     | POST   | Re-ingest playbook files             |
-| `/api/health`     | GET    | Server health check                  |
+| Endpoint         | Method | Description                         |
+| ---------------- | ------ | ----------------------------------- |
+| `/api/incident`  | POST   | Submit incident → get action plan   |
+| `/api/chat`      | POST   | Follow-up questions in chat context |
+| `/api/search`    | POST   | Direct playbook semantic search     |
+| `/api/playbooks` | GET    | List all ingested playbooks         |
+| `/api/ingest`    | POST   | Re-ingest playbook files            |
+| `/api/health`    | GET    | Server health check                 |
 
 ## BYOM — Bring Your Own Model
 
@@ -122,18 +128,52 @@ For Ollama, pull your model first: `ollama pull llama3.1:8b`
 
 ## Chat UI options
 
-| Option       | Set `CHAT_UI=`  | Install                    | What you get                              |
-|-------------|-----------------|----------------------------|--------------------------------------------|
-| Built-in     | `builtin`       | Nothing extra              | Single-file dark theme UI at `/`           |
-| Chainlit     | `chainlit`      | `pip install chainlit`     | Production chat UI at `/chat` (mounts into FastAPI) |
-| Open WebUI   | —               | Docker container           | Full AI platform (connects via API)        |
-| Gradio       | —               | `pip install gradio`       | Quick demo interface                       |
+| Option     | Set `CHAT_UI=` | Install                | What you get                                        |
+| ---------- | -------------- | ---------------------- | --------------------------------------------------- |
+| Built-in   | `builtin`      | Nothing extra          | Single-file dark theme UI at `/`                    |
+| Chainlit   | `chainlit`     | `pip install chainlit` | Production chat UI at `/chat` (mounts into FastAPI) |
+| Open WebUI | —              | Docker container       | Full AI platform (connects via API)                 |
+| Gradio     | —              | `pip install gradio`   | Quick demo interface                                |
 
 See [docs/WIRING.md](docs/WIRING.md) for step-by-step setup instructions for each.
 
+## Tests
+
+```bash
+pip install pytest httpx
+pytest tests/ -v
+```
+
+**60 tests** across 5 test modules:
+
+| Module                 | Tests | What it covers                                                               |
+| ---------------------- | ----- | ---------------------------------------------------------------------------- |
+| `test_api.py`          | 23    | Endpoint contracts, validation, search ranking, idempotent ingestion         |
+| `test_integration.py`  | 8     | Full request lifecycle, context passing, re-ingest safety, error propagation |
+| `test_vector_store.py` | 9     | Chunking logic, overlap correctness, search quality, skip rules              |
+| `test_adapters.py`     | 5     | BYOM registry, unknown provider rejection, ABC enforcement                   |
+| `test_scenarios.py`    | 15    | Corpus integrity, distribution, MITRE coverage, generator reproducibility    |
+
+Key things the tests verify:
+
+- **Search ranking**: ransomware query → ransomware playbook first (not phishing)
+- **Multi-turn chat**: search context uses latest user message, not first
+- **Idempotent ingest**: re-ingestion produces identical chunk counts
+- **Error propagation**: broken LLM → clean 500 with message, not stack trace
+- **Data integrity**: all search results have metadata, no empty content
+- **Generator determinism**: same seed → identical output
+
 ## Scenario corpus
 
-`data/scenarios.json` contains 2,000 procedurally generated incident scenarios across 10 categories, seeded from MITRE ATT&CK techniques, real-world breach patterns, and MSP-specific environments.  Use for:
+`data/scenarios.json` contains 2,000 procedurally generated incident scenarios across 10 categories, seeded from MITRE ATT&CK techniques, real-world breach patterns, and MSP-specific environments.
+
+Regenerate with:
+
+```bash
+python scripts/generate_scenarios.py --seed 42 --output data/scenarios.json
+```
+
+Use for:
 
 - Tabletop exercises
 - LLM fine-tuning / eval datasets
@@ -142,11 +182,11 @@ See [docs/WIRING.md](docs/WIRING.md) for step-by-step setup instructions for eac
 
 ## Adding playbooks
 
-Drop any `.md` file into `playbooks/` and hit `POST /api/ingest`.  The system chunks it, embeds it, and makes it searchable.
+Drop any `.md` file into `playbooks/` and hit `POST /api/ingest`. The system chunks it, embeds it, and makes it searchable.
 
 ## ConnectWise + N8N integration
 
-The IRP engine delegates to your existing **cw-mcp** server for ticket operations and fires webhooks to **N8N** for escalation chains.  Neither is required — the engine runs standalone.
+The IRP engine delegates to your existing **cw-mcp** server for ticket operations and fires webhooks to **N8N** for escalation chains. Neither is required — the engine runs standalone.
 
 See [docs/WIRING.md](docs/WIRING.md) for full wiring instructions.
 

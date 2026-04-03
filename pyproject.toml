@@ -1,0 +1,25 @@
+[project]
+name = "gone-phishing"
+version = "0.2.0"
+description = "AI-powered Incident Response Plan engine for MSPs"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "chromadb>=0.5.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.27.0",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.30.0"]
+gemini = ["google-generativeai>=0.5.0"]
+chainlit = ["chainlit>=2.10.0"]
+cw-mcp = ["mcp>=1.0.0"]
+dev = ["pytest>=8.0", "httpx>=0.27.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

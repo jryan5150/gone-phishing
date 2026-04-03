@@ -1,0 +1,87 @@
+{
+  "extracted_at": "2026-04-02T20:45:00Z",
+  "frontend_api_calls": [
+    {
+      "file": "web/index.html",
+      "line": 368,
+      "method": "GET",
+      "url": "/api/health",
+      "framework": "fetch"
+    },
+    {
+      "file": "web/index.html",
+      "line": 427,
+      "method": "POST",
+      "url": "/api/incident",
+      "framework": "fetch"
+    },
+    {
+      "file": "web/index.html",
+      "line": 446,
+      "method": "POST",
+      "url": "/api/chat",
+      "framework": "fetch"
+    }
+  ],
+  "backend_routes": [
+    {
+      "file": "server/app.py",
+      "line": 71,
+      "method": "POST",
+      "path": "/api/incident",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 102,
+      "method": "POST",
+      "path": "/api/chat",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 118,
+      "method": "POST",
+      "path": "/api/search",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 137,
+      "method": "GET",
+      "path": "/api/playbooks",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 143,
+      "method": "POST",
+      "path": "/api/ingest",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 149,
+      "method": "GET",
+      "path": "/api/health",
+      "framework": "fastapi"
+    },
+    {
+      "file": "server/app.py",
+      "line": 188,
+      "method": "GET",
+      "path": "/",
+      "framework": "fastapi"
+    }
+  ],
+  "environment_vars": [],
+  "form_actions": [],
+  "frozen_elements": [
+    "API_BASE variable and all fetch() calls",
+    "JSON body shapes: { description }, { messages }, { query, n_results }",
+    "Response shapes: { action_plan, matched_playbooks }, { response }, { status }",
+    "onclick handlers on quick-action buttons (send() calls with incident text)",
+    "onkeydown handler on textarea",
+    "id attributes: messages, input, sendBtn, status, quickActions, loadingIndicator"
+  ]
+}

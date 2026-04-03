@@ -158,3 +158,46 @@ def test_chat_with_broken_llm_returns_500_not_crash(client):
             json={"messages": [{"role": "user", "content": "test"}]},
         )
     assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# Provider outage resilience
+# ---------------------------------------------------------------------------
+
+
+def test_anthropic_503_preserves_incident_context(client):
+    """Simulate Anthropic returning 503 (overloaded) mid-incident.
+    The system should fail gracefully and the search layer should
+    still have the matched playbooks — incident context isn't lost
+    just because the LLM is down."""
+    def _anthropic_503(*args, **kwargs):
+        raise ConnectionError("Error code: 503 - Anthropic API is temporarily overloaded")
+
+    # First verify search still works independently
+    search_resp = client.post(
+        "/api/search",
+        json={"query": "ransomware encrypted files demanding bitcoin", "n_results": 3},
+    )
+    assert search_resp.status_code == 200
+    playbooks_before = search_resp.json()["results"]
+    assert len(playbooks_before) > 0
+
+    # Now hit the incident endpoint with a dead LLM
+    with patch("app.generate_action_plan", side_effect=_anthropic_503):
+        incident_resp = client.post(
+            "/api/incident",
+            json={"description": "Ransomware encrypted files demanding bitcoin"},
+        )
+    assert incident_resp.status_code == 500
+    assert "server logs" in incident_resp.json()["detail"].lower()
+
+    # Search layer should still be fully functional after the LLM failure
+    search_after = client.post(
+        "/api/search",
+        json={"query": "ransomware encrypted files demanding bitcoin", "n_results": 3},
+    )
+    assert search_after.status_code == 200
+    playbooks_after = search_after.json()["results"]
+    assert len(playbooks_after) == len(playbooks_before)
+    # Same playbooks, same order — LLM outage didn't corrupt the search layer
+    assert playbooks_after[0]["playbook_type"] == playbooks_before[0]["playbook_type"]

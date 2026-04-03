@@ -13,13 +13,16 @@ import logging
 import os
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from config import CHAT_UI, HOST, PORT
+from config import CHAT_UI, HOST, PORT, validate
 from llm import chat_response, generate_action_plan
 from vector_store import ingest_playbooks, list_playbooks, search_playbooks
 
@@ -29,19 +32,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger("gone-phishing")
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Gone-Phishing IRP Engine",
     version="0.2.0",
     description="AI-powered Incident Response Plan retrieval and action plan generation.",
 )
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again shortly."})
+
+_cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+_cors_origins = [o.strip() for o in _cors_origins if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins or ["*"],
+    allow_credentials=bool(_cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 # -- Request / response schemas ---------------------------------------------
@@ -66,7 +89,8 @@ class ChatInput(BaseModel):
 
 
 @app.post("/api/incident")
-async def handle_incident(body: IncidentInput) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def handle_incident(request: Request, body: IncidentInput) -> dict[str, Any]:
     """Submit an incident description → receive a role-assigned action plan."""
     try:
         matches = search_playbooks(body.description, n_results=8)
@@ -91,13 +115,14 @@ async def handle_incident(body: IncidentInput) -> dict[str, Any]:
         }
     except HTTPException:
         raise
-    except Exception as exc:
+    except Exception:
         logger.exception("Incident endpoint error")
-        raise HTTPException(500, str(exc))
+        raise HTTPException(500, "Failed to generate action plan. Check server logs.")
 
 
 @app.post("/api/chat")
-async def handle_chat(body: ChatInput) -> dict[str, str]:
+@limiter.limit("20/minute")
+async def handle_chat(request: Request, body: ChatInput) -> dict[str, str]:
     """Follow-up questions in chat context."""
     try:
         latest_user_msg = next(
@@ -107,9 +132,9 @@ async def handle_chat(body: ChatInput) -> dict[str, str]:
         matches = search_playbooks(latest_user_msg, n_results=5) if latest_user_msg else []
         response = chat_response(messages=body.messages, playbook_context=matches or None)
         return {"response": response}
-    except Exception as exc:
+    except Exception:
         logger.exception("Chat endpoint error")
-        raise HTTPException(500, str(exc))
+        raise HTTPException(500, "Chat request failed. Check server logs.")
 
 
 @app.post("/api/search")
@@ -127,8 +152,9 @@ async def handle_search(body: SearchInput) -> dict[str, Any]:
                 for m in matches
             ]
         }
-    except Exception as exc:
-        raise HTTPException(500, str(exc))
+    except Exception:
+        logger.exception("Search endpoint error")
+        raise HTTPException(500, "Search failed. Check server logs.")
 
 
 @app.get("/api/playbooks")
@@ -144,8 +170,34 @@ async def run_ingest() -> dict[str, Any]:
 
 
 @app.get("/api/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "gone-phishing"}
+async def health() -> dict[str, Any]:
+    """Liveness check with dependency status."""
+    checks: list[dict[str, Any]] = []
+
+    # ChromaDB reachable + playbooks ingested
+    try:
+        playbooks = list_playbooks()
+        checks.append({"name": "chromadb", "ok": True, "playbooks": len(playbooks)})
+    except Exception as exc:
+        checks.append({"name": "chromadb", "ok": False, "error": str(exc)})
+
+    # LLM provider configured
+    from config import LLM_MODEL, LLM_PROVIDER
+    llm_configured = True
+    try:
+        from adapters import get_adapter
+        adapter = get_adapter()
+        checks.append({"name": "llm", "ok": True, "provider": LLM_PROVIDER, "model": adapter.model_name})
+    except Exception as exc:
+        llm_configured = False
+        checks.append({"name": "llm", "ok": False, "error": str(exc)})
+
+    all_ok = all(c["ok"] for c in checks)
+    return {
+        "status": "ok" if all_ok else "degraded",
+        "service": "gone-phishing",
+        "checks": checks,
+    }
 
 
 # -- Chat UI mount -----------------------------------------------------------
@@ -191,6 +243,7 @@ match CHAT_UI:
 if __name__ == "__main__":
     import uvicorn
 
+    validate()
     logger.info("Ingesting playbooks on startup...")
     result = ingest_playbooks()
     logger.info("Ready: %d files, %d chunks", result["files_ingested"], result["total_chunks"])

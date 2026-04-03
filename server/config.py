@@ -7,12 +7,16 @@ Import settings from here; never call os.getenv() elsewhere.
 
 from __future__ import annotations
 
+import logging
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # -- Paths ------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,3 +55,29 @@ CHAT_UI: str = os.getenv("CHAT_UI", "builtin")
 
 # -- Tool registry ----------------------------------------------------------
 ENABLED_TOOLS: list[str] = os.getenv("ENABLED_TOOLS", "irp,cw,n8n").split(",")
+
+# -- Startup validation -----------------------------------------------------
+_PROVIDER_KEYS: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GOOGLE_API_KEY",
+}
+
+
+def validate() -> None:
+    """Check required config at startup. Logs warnings, exits on fatal errors."""
+    required_key = _PROVIDER_KEYS.get(LLM_PROVIDER)
+    if required_key and not os.getenv(required_key):
+        logger.error(
+            "LLM_PROVIDER=%s but %s is not set. "
+            "Set it in .env or switch providers.",
+            LLM_PROVIDER,
+            required_key,
+        )
+        sys.exit(1)
+
+    if LLM_PROVIDER == "ollama":
+        logger.info("LLM_PROVIDER=ollama — ensure 'ollama serve' is running at %s", OLLAMA_BASE_URL)
+
+    if not PLAYBOOKS_DIR.exists():
+        logger.warning("PLAYBOOKS_DIR %s does not exist", PLAYBOOKS_DIR)

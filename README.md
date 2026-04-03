@@ -190,6 +190,31 @@ The IRP engine delegates to your existing **cw-mcp** server for ticket operation
 
 See [docs/WIRING.md](docs/WIRING.md) for full wiring instructions.
 
+## Development Timeline
+
+Built through AI-orchestrated development — brainstormed and prototyped on mobile, then moved to desktop for parallel agent execution and full orchestration. Each phase below links to its commit.
+
+| Phase                       | What                                                                                                                                                    | Commit                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Foundation**              | IRP engine, BYOM adapters, CW MCP client, playbook ingestion, chat UI                                                                                   | [`283e870`](../../commit/283e870) |
+| **Code Quality Audit**      | Fixed config duplication, removed dead code, singleton ChromaDB client, consistent pathlib                                                              | [`39d9ec9`](../../commit/39d9ec9) |
+| **Operational Hardening**   | Startup config validation (fail fast on missing keys), real health check with dependency verification, CORS spec compliance                             | [`5efcb04`](../../commit/5efcb04) |
+| **Adapter Instrumentation** | Logging on all LLM calls (model, latency, tokens), fixed Gemini SDK bug (system_instruction was in wrong location)                                      | [`3581961`](../../commit/3581961) |
+| **Frontend Security**       | Replaced regex markdown with marked.js, added DOMPurify to prevent XSS via LLM prompt injection                                                         | [`7486c92`](../../commit/7486c92) |
+| **Documentation Cleanup**   | Proper attribution for IRP template source, stripped leaked section numbers, removed docs for non-existent features                                     | [`5b45e3a`](../../commit/5b45e3a) |
+| **Data Provenance**         | Procedural scenario generator (pure Python, seeded, 10 categories, MITRE ATT&CK, 20 ransomware variants) — data now has a generator, not a mystery blob | [`520b2b5`](../../commit/520b2b5) |
+| **Test Suite**              | 60 tests: API contracts, integration lifecycle, search ranking quality, adapter registry, corpus integrity, generator determinism                       | [`fbc3834`](../../commit/fbc3834) |
+| **Project Structure**       | pyproject.toml, proper package layout, README with test documentation, free-tier LLM guidance                                                           | [`35797cc`](../../commit/35797cc) |
+| **Security Review**         | Rate limiting (slowapi), security headers, generic error messages (no internal detail leakage), XSS prevention                                          | _this commit_                     |
+
+### Process
+
+1. **Brainstorm + prototype** (mobile) — sketched the architecture, identified the playbook-to-vector-search pipeline, chose BYOM adapter pattern
+2. **Quality audit** (desktop) — systematic review of every file, identified 22 specific issues, prioritized by impact
+3. **Parallel execution** — launched scenario generator as a background agent while fixing code quality, config validation, and health checks in the main session
+4. **Security review** — invoked specialized security analysis that caught XSS-via-prompt-injection, error message leakage, and missing rate limiting before ship
+5. **Test-driven validation** — wrote tests that verify _behavior_ (does ransomware query rank ransomware playbook first?) not just _syntax_ (does this function return a dict?)
+
 ## License
 
 Lexcom Systems Group — internal tool.

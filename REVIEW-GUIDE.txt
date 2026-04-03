@@ -1,0 +1,23 @@
+Hey all — here's the gone-phishing repo for review:
+https://github.com/jryan5150/gone-phishing
+
+Quick context: this is an IRP engine that takes an incident description, matches it against NIST 800-61 playbooks via semantic search, and generates a role-assigned action plan. Built it from brainstorm to ship in one session to prove out the AI-orchestrated development workflow.
+
+Few things you'll notice I intentionally didn't do:
+
+- No auth — it's an internal MSP tool. Adding OAuth for something behind our VPN is over-engineering for v1. Phase 2 concern.
+- No streaming — IRP action plans need to be complete before you act on them. Half a checklist during live ransomware is worse than waiting 3 seconds.
+- ChromaDB instead of Postgres — 11 playbook files, ~50 chunks. Postgres for that is a database looking for a problem. Re-indexes from git in 2 seconds.
+- Single HTML file, no React — zero build step, ships in a Python image. It's a chat window, not a dashboard.
+- No CI/CD — Railway auto-deploys from push. GitHub Actions to lint before that is ceremony for a one-person project.
+- Ephemeral vector store — playbooks are in git, ChromaDB is derived data. Restart = 2 second re-index.
+
+What I did focus on:
+- 60 tests across 5 modules (search ranking quality, integration lifecycle, data integrity, generator reproducibility)
+- Security review before ship — caught XSS via LLM prompt injection, added DOMPurify + rate limiting + security headers
+- Scenario generator script so the 2K training scenarios have real provenance (not a mystery data blob)
+- BYOM adapter layer — swap Claude/GPT/Gemini/Ollama with one env var
+
+The README has a full development timeline with commit links showing each phase. The commit history tells the story — started on mobile brainstorming, moved to desktop for parallel agent execution.
+
+Tear it apart, that's the point.

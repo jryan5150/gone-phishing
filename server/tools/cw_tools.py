@@ -30,16 +30,14 @@ from typing import Any
 
 from config import (
     CW_BASE_URL,
+    CW_CLIENT_ID,
     CW_COMPANY_ID,
+    CW_MCP_SERVER_DIR,
     CW_PRIVATE_KEY,
     CW_PUBLIC_KEY,
 )
 
 logger = logging.getLogger(__name__)
-
-# Path to your built cw-mcp-server (must contain dist/index.js after `npm run build`)
-CW_MCP_SERVER_DIR: str = os.getenv("CW_MCP_SERVER_DIR", "")
-CW_CLIENT_ID: str = os.getenv("CW_CLIENT_ID", "")
 
 # ---------------------------------------------------------------------------
 # MCP client session (lazy singleton)
@@ -142,20 +140,6 @@ async def _close_session() -> None:
     except Exception:
         pass
     _session = _client_ctx = _session_ctx = None
-
-
-# ---------------------------------------------------------------------------
-# Synchronous wrappers (FastAPI endpoints are async but tool callers may not be)
-# ---------------------------------------------------------------------------
-
-def _run(coro):
-    """Run an async coroutine from sync context."""
-    try:
-        loop = asyncio.get_running_loop()
-        # Already in an async context — just return the coroutine for await
-        return coro
-    except RuntimeError:
-        return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------

@@ -7,8 +7,8 @@ Embedding: ChromaDB default (all-MiniLM-L6-v2 via sentence-transformers).
 
 from __future__ import annotations
 
-import glob
 import os
+from pathlib import Path
 from typing import Any
 
 import chromadb
@@ -20,14 +20,19 @@ COLLECTION_NAME = "irp_playbooks"
 
 _embedding_fn = embedding_functions.DefaultEmbeddingFunction()
 
+_client: chromadb.PersistentClient | None = None
+
 
 def _get_client() -> chromadb.PersistentClient:
-    os.makedirs(CHROMA_DIR, exist_ok=True)
-    return chromadb.PersistentClient(path=str(CHROMA_DIR))
+    global _client
+    if _client is None:
+        os.makedirs(CHROMA_DIR, exist_ok=True)
+        _client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    return _client
 
 
-def _get_collection(client: chromadb.PersistentClient) -> Any:
-    return client.get_or_create_collection(
+def _get_collection() -> Any:
+    return _get_client().get_or_create_collection(
         name=COLLECTION_NAME,
         embedding_function=_embedding_fn,
         metadata={"hnsw:space": "cosine"},
@@ -51,9 +56,8 @@ def ingest_playbooks(playbooks_dir: str | None = None) -> dict[str, Any]:
 
     Returns a summary dict with ``files_ingested``, ``total_chunks``, and ``details``.
     """
-    src = playbooks_dir or str(PLAYBOOKS_DIR)
-    client = _get_client()
-    collection = _get_collection(client)
+    src = Path(playbooks_dir) if playbooks_dir else PLAYBOOKS_DIR
+    collection = _get_collection()
 
     # Wipe existing data for a clean re-index.
     try:
@@ -63,27 +67,26 @@ def ingest_playbooks(playbooks_dir: str | None = None) -> dict[str, Any]:
     except Exception:
         pass
 
-    md_files = sorted(glob.glob(os.path.join(src, "*.md")))
+    skip = {"README.md", "full-irp-template.md"}
+    md_files = sorted(src.glob("*.md"))
     total_chunks = 0
     details: list[dict[str, Any]] = []
 
     for filepath in md_files:
-        filename = os.path.basename(filepath)
-        if filename in ("README.md", "full-irp-template.md"):
+        if filepath.name in skip:
             continue
 
-        with open(filepath) as f:
-            content = f.read()
+        content = filepath.read_text()
         if not content.strip():
             continue
 
-        playbook_type = filename.removesuffix(".md")
+        playbook_type = filepath.stem
         chunks = chunk_document(content)
 
         ids = [f"{playbook_type}__chunk_{i}" for i in range(len(chunks))]
         metadatas = [
             {
-                "source_file": filename,
+                "source_file": filepath.name,
                 "playbook_type": playbook_type,
                 "chunk_index": i,
                 "total_chunks": len(chunks),
@@ -93,7 +96,7 @@ def ingest_playbooks(playbooks_dir: str | None = None) -> dict[str, Any]:
 
         collection.add(ids=ids, documents=chunks, metadatas=metadatas)
         total_chunks += len(chunks)
-        details.append({"file": filename, "chunks": len(chunks)})
+        details.append({"file": filepath.name, "chunks": len(chunks)})
 
     return {
         "files_ingested": len(details),
@@ -104,8 +107,7 @@ def ingest_playbooks(playbooks_dir: str | None = None) -> dict[str, Any]:
 
 def search_playbooks(query: str, n_results: int = 5) -> list[dict[str, Any]]:
     """Semantic search — returns the *n_results* closest playbook chunks."""
-    client = _get_client()
-    collection = _get_collection(client)
+    collection = _get_collection()
 
     results = collection.query(query_texts=[query], n_results=n_results)
 
@@ -124,8 +126,7 @@ def search_playbooks(query: str, n_results: int = 5) -> list[dict[str, Any]]:
 
 def list_playbooks() -> list[dict[str, Any]]:
     """Return de-duplicated metadata for every ingested playbook type."""
-    client = _get_client()
-    collection = _get_collection(client)
+    collection = _get_collection()
 
     seen: dict[str, dict[str, Any]] = {}
     for meta in collection.get()["metadatas"]:

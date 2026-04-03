@@ -933,6 +933,56 @@
           display: none;
         }
       }
+
+      /* Pipeline status cards */
+      .pipeline-status {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+      }
+      .pipeline-card {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-family: var(--font-mono);
+        border: 1px solid var(--border);
+        background: var(--bg-primary);
+      }
+      .pipeline-card .icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+      .pipeline-card .label {
+        color: var(--text-tertiary);
+      }
+      .pipeline-card .value {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .pipeline-card.success {
+        border-color: var(--status-ok);
+      }
+      .pipeline-card.success .icon {
+        color: var(--status-ok);
+      }
+      .pipeline-card.warn {
+        border-color: var(--accent);
+      }
+      .pipeline-card.warn .icon {
+        color: var(--accent);
+      }
+      .pipeline-card.error {
+        border-color: var(--status-critical);
+      }
+      .pipeline-card.error .icon {
+        color: var(--status-critical);
+      }
     </style>
   </head>
   <body>
@@ -1169,6 +1219,72 @@
 
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+        return div;
+      }
+
+      function addPipelineStatus(parentDiv, data) {
+        const statusDiv = document.createElement("div");
+        statusDiv.className = "pipeline-status";
+
+        // CW Ticket card
+        const cw = data.cw_ticket;
+        if (cw && cw.id) {
+          statusDiv.innerHTML += `
+            <div class="pipeline-card success">
+              <span class="icon">&#9745;</span>
+              <span class="label">CW Ticket</span>
+              <span class="value">#${cw.id}</span>
+            </div>`;
+        } else if (cw && cw.error) {
+          statusDiv.innerHTML += `
+            <div class="pipeline-card warn">
+              <span class="icon">&#9888;</span>
+              <span class="label">CW Ticket</span>
+              <span class="value">Not configured</span>
+            </div>`;
+        }
+
+        // N8N Escalation card
+        const esc = data.escalation;
+        if (esc && esc.status === "triggered") {
+          statusDiv.innerHTML += `
+            <div class="pipeline-card success">
+              <span class="icon">&#9889;</span>
+              <span class="label">N8N Escalation</span>
+              <span class="value">Triggered</span>
+            </div>`;
+        } else if (
+          esc &&
+          (esc.status === "not_configured" || esc.status === "unavailable")
+        ) {
+          statusDiv.innerHTML += `
+            <div class="pipeline-card warn">
+              <span class="icon">&#9889;</span>
+              <span class="label">N8N Escalation</span>
+              <span class="value">Ready to connect</span>
+            </div>`;
+        } else if (esc && esc.status === "error") {
+          statusDiv.innerHTML += `
+            <div class="pipeline-card error">
+              <span class="icon">&#10060;</span>
+              <span class="label">N8N Escalation</span>
+              <span class="value">Error</span>
+            </div>`;
+        }
+
+        // Matched playbooks
+        if (data.matched_playbooks && data.matched_playbooks.length > 0) {
+          const types = data.matched_playbooks.map((p) => p.type).join(", ");
+          statusDiv.innerHTML += `
+            <div class="pipeline-card success">
+              <span class="icon">&#128214;</span>
+              <span class="label">Matched</span>
+              <span class="value">${DOMPurify.sanitize(types)}</span>
+            </div>`;
+        }
+
+        parentDiv.appendChild(statusDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
       function showLoading() {
@@ -1198,9 +1314,9 @@
         showLoading();
 
         try {
-          // Use the incident endpoint for first message, chat for follow-ups
+          // First message: full pipeline (plan + CW ticket + N8N escalation)
           if (chatHistory.length === 0) {
-            const res = await fetch(`${API_BASE}/api/incident`, {
+            const res = await fetch(`${API_BASE}/api/incident/respond`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ description: msg }),
@@ -1208,7 +1324,8 @@
             const data = await res.json();
             if (data.action_plan) {
               hideLoading();
-              addMessage("assistant", data.action_plan);
+              const msgDiv = addMessage("assistant", data.action_plan);
+              addPipelineStatus(msgDiv, data);
               chatHistory.push({ role: "user", content: msg });
               chatHistory.push({
                 role: "assistant",

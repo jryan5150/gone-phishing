@@ -23,7 +23,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from config import CHAT_UI, HOST, PORT, validate
+from cw_rest import add_ticket_note, create_ticket, is_configured as cw_configured
 from llm import chat_response, generate_action_plan
+from tools.n8n_tools import tool_trigger_escalation
 from vector_store import ingest_playbooks, list_playbooks, search_playbooks
 
 logging.basicConfig(
@@ -74,6 +76,8 @@ class IncidentInput(BaseModel):
     description: str = Field(..., min_length=5, description="Free-text incident description")
     severity: str | None = Field(None, description="S1 / S2 / S3 / S4")
     affected_systems: str | None = Field(None, description="Affected systems")
+    create_ticket: bool = Field(True, description="Auto-create CW ticket")
+    escalate: bool = Field(True, description="Fire N8N escalation chain")
 
 
 class SearchInput(BaseModel):
@@ -118,6 +122,98 @@ async def handle_incident(request: Request, body: IncidentInput) -> dict[str, An
     except Exception:
         logger.exception("Incident endpoint error")
         raise HTTPException(500, "Failed to generate action plan. Check server logs.")
+
+
+@app.post("/api/incident/respond")
+async def handle_incident_respond(body: IncidentInput) -> dict[str, Any]:
+    """Full pipeline: incident → action plan → CW ticket → N8N escalation.
+
+    This is the demo endpoint that chains all three systems together.
+    Each step degrades gracefully if its backing service is unavailable.
+    """
+    result: dict[str, Any] = {
+        "action_plan": None,
+        "matched_playbooks": [],
+        "cw_ticket": None,
+        "escalation": None,
+    }
+
+    # Step 1: Generate action plan (same as /api/incident)
+    try:
+        matches = search_playbooks(body.description, n_results=8)
+        if not matches:
+            raise HTTPException(404, "No playbooks found. Run POST /api/ingest first.")
+
+        plan = generate_action_plan(
+            incident_description=body.description,
+            playbook_context=matches,
+            severity=body.severity,
+            affected_systems=body.affected_systems,
+        )
+        result["action_plan"] = plan
+        result["matched_playbooks"] = [
+            {
+                "type": m["metadata"]["playbook_type"],
+                "relevance": round(1 - (m["distance"] or 0), 3),
+            }
+            for m in matches[:3]
+        ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Action plan generation failed")
+        raise HTTPException(500, f"Plan generation failed: {exc}")
+
+    # Classify for downstream (extract severity from plan if not provided)
+    severity = body.severity or "S2"
+    ticket_summary = f"[IRP] {body.description[:80]}"
+
+    # Step 2: Create CW ticket (graceful degradation)
+    if body.create_ticket and cw_configured():
+        try:
+            ticket_result = create_ticket(
+                summary=ticket_summary,
+                description=body.description,
+            )
+            if ticket_result.get("success"):
+                ticket = ticket_result["ticket"]
+                ticket_id = ticket["id"]
+                result["cw_ticket"] = {
+                    "id": ticket_id,
+                    "summary": ticket.get("summary"),
+                }
+
+                # Add the full action plan as an internal note
+                note_result = add_ticket_note(
+                    ticket_id=ticket_id,
+                    text=f"## AI-Generated Action Plan\n\n{plan}",
+                    internal=True,
+                )
+                if note_result.get("error"):
+                    logger.warning("CW note failed: %s", note_result["error"])
+            else:
+                result["cw_ticket"] = {"error": ticket_result.get("error", "Unknown error")}
+        except Exception as exc:
+            logger.exception("CW ticket creation failed")
+            result["cw_ticket"] = {"error": str(exc)}
+    elif not cw_configured():
+        result["cw_ticket"] = {"error": "CW credentials not configured"}
+
+    # Step 3: Fire N8N escalation (graceful degradation)
+    if body.escalate:
+        try:
+            incident_id = f"IRP-{result['cw_ticket']['id']}" if result["cw_ticket"] and result["cw_ticket"].get("id") else "IRP-UNTRACKED"
+            escalation = tool_trigger_escalation(
+                incident_id=incident_id,
+                severity=severity,
+                summary=ticket_summary,
+            )
+            result["escalation"] = escalation
+        except Exception as exc:
+            logger.exception("N8N escalation failed")
+            result["escalation"] = {"status": "error", "error": str(exc)}
+
+    return result
 
 
 @app.post("/api/chat")

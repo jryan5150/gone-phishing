@@ -25,9 +25,18 @@ from config import N8N_BASE_URL, N8N_WEBHOOK_SECRET
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+_DEFAULT_URL = "http://localhost:5678"
+
+
+def is_configured() -> bool:
+    """True if N8N_BASE_URL has been set to something other than the default."""
+    return bool(N8N_BASE_URL) and N8N_BASE_URL != _DEFAULT_URL
 
 
 def _fire_webhook(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not is_configured():
+        return {"status": "not_configured", "error": "N8N_BASE_URL not set"}
+
     url = f"{N8N_BASE_URL.rstrip('/')}/webhook/{path}"
     headers = {}
     if N8N_WEBHOOK_SECRET:

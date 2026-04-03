@@ -1,0 +1,113 @@
+{
+  "name": "IRP Escalation Chain",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "irp-escalation",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook — IRP Escalation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "severity-check",
+              "leftValue": "={{ $json.body.severity }}",
+              "rightValue": "S1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "severity-router",
+      "name": "Severity Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "irp@lexcom.systems",
+        "toEmail": "=ir-team@lexcom.systems",
+        "subject": "=[CRITICAL S1] {{ $json.body.summary }}",
+        "emailType": "text",
+        "message": "=CRITICAL INCIDENT — IMMEDIATE RESPONSE REQUIRED\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nIncident ID: {{ $json.body.incident_id }}\nSeverity: {{ $json.body.severity }}\nSummary: {{ $json.body.summary }}\nAssigned To: {{ $json.body.assigned_to || 'Unassigned' }}\nTime: {{ $now.toISO() }}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nThis is an automated alert from the Lexcom IRP Engine.\nAction plan has been generated and attached to the CW ticket.\n\nRespond within 15 minutes per S1 SLA.",
+        "options": {}
+      },
+      "id": "email-critical",
+      "name": "Email — Critical Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [720, 180]
+    },
+    {
+      "parameters": {
+        "fromEmail": "irp@lexcom.systems",
+        "toEmail": "=ir-team@lexcom.systems",
+        "subject": "=[{{ $json.body.severity }}] {{ $json.body.summary }}",
+        "emailType": "text",
+        "message": "=INCIDENT ALERT\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nIncident ID: {{ $json.body.incident_id }}\nSeverity: {{ $json.body.severity }}\nSummary: {{ $json.body.summary }}\nAssigned To: {{ $json.body.assigned_to || 'Unassigned' }}\nTime: {{ $now.toISO() }}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nThis is an automated alert from the Lexcom IRP Engine.\nAction plan has been generated and attached to the CW ticket.",
+        "options": {}
+      },
+      "id": "email-standard",
+      "name": "Email — Standard Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [720, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TEAMS_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"@type\": \"MessageCard\",\n  \"@context\": \"http://schema.org/extensions\",\n  \"themeColor\": \"{{ $json.body.severity === 'S1' ? 'FF0000' : 'FFA500' }}\",\n  \"summary\": \"IRP Alert: {{ $json.body.summary }}\",\n  \"sections\": [{\n    \"activityTitle\": \"Incident Response Alert\",\n    \"facts\": [\n      { \"name\": \"Incident ID\", \"value\": \"{{ $json.body.incident_id }}\" },\n      { \"name\": \"Severity\", \"value\": \"{{ $json.body.severity }}\" },\n      { \"name\": \"Summary\", \"value\": \"{{ $json.body.summary }}\" },\n      { \"name\": \"Time\", \"value\": \"{{ $now.toISO() }}\" }\n    ],\n    \"markdown\": true\n  }]\n}",
+        "options": {}
+      },
+      "id": "teams-notify",
+      "name": "Teams — Notify Channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 600]
+    }
+  ],
+  "connections": {
+    "Webhook — IRP Escalation": {
+      "main": [
+        [
+          { "node": "Severity Router", "type": "main", "index": 0 },
+          { "node": "Teams — Notify Channel", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Severity Router": {
+      "main": [
+        [{ "node": "Email — Critical Alert", "type": "main", "index": 0 }],
+        [{ "node": "Email — Standard Alert", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "IRP" }, { "name": "Security" }]
+}

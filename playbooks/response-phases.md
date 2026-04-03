@@ -1,4 +1,4 @@
-### 5. Incident Response Phases
+### Incident Response Phases
 
 #### Phase 1: Preparation
 
@@ -20,6 +20,7 @@
 **Objective**: Detect, validate, and classify the incident.
 
 **Detection Sources**:
+
 - Security Information and Event Management (SIEM) alerts
 - Endpoint Detection and Response (EDR) alerts
 - Intrusion Detection/Prevention System (IDS/IPS) alerts
@@ -29,6 +30,7 @@
 - External vulnerability scanning
 
 **Initial Triage Checklist**:
+
 - [ ] Date and time of detection
 - [ ] Source of detection (who/what identified it)
 - [ ] Description of the event
@@ -44,6 +46,7 @@
 **Objective**: Limit the scope and impact of the incident.
 
 **Short-Term Containment** (immediate actions):
+
 - [ ] Isolate affected systems from the network (do NOT power off if forensics needed)
 - [ ] Block malicious IPs, domains, or email addresses
 - [ ] Disable compromised user accounts
@@ -53,6 +56,7 @@
 - [ ] Document all containment actions taken
 
 **Long-Term Containment** (temporary fixes):
+
 - [ ] Apply temporary security controls
 - [ ] Implement network segmentation changes
 - [ ] Set up enhanced monitoring of affected areas

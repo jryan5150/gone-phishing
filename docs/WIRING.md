@@ -6,11 +6,11 @@ Step-by-step instructions for connecting every external dependency.
 
 ## Chat UI Options
 
-Gone-Phishing ships with a built-in single-file web UI (`web/index.html`).  You can swap it for a more capable chat engine by setting `CHAT_UI` in `.env`.
+Gone-Phishing ships with a built-in single-file web UI (`web/index.html`). You can swap it for a more capable chat engine by setting `CHAT_UI` in `.env`.
 
 ### Option 1: Built-in (default)
 
-Zero dependencies.  A single-page dark-theme chat interface served directly by FastAPI.
+Zero dependencies. A single-page dark-theme chat interface served directly by FastAPI.
 
 ```bash
 CHAT_UI=builtin   # or just don't set it
@@ -24,9 +24,9 @@ Good for demos, air-gapped environments, and keeping the dependency tree minimal
 
 ### Option 2: Chainlit
 
-[Chainlit](https://github.com/Chainlit/chainlit) (Apache 2.0, 9k+ stars) mounts directly into your FastAPI process — no separate server, no Docker, no JavaScript build step.  It gives you streaming responses, step visualisation, file upload, auth (OAuth / header), and a polished React frontend out of the box.
+[Chainlit](https://github.com/Chainlit/chainlit) (Apache 2.0, 9k+ stars) mounts directly into your FastAPI process — no separate server, no Docker, no JavaScript build step. It gives you streaming responses, step visualisation, file upload, auth (OAuth / header), and a polished React frontend out of the box.
 
-**Why it's a good fit:** The IRP engine already runs FastAPI.  Chainlit plugs in with one function call (`mount_chainlit`), inherits your existing endpoints, and adds a production-grade chat UI at `/chat`.
+**Why it's a good fit:** The IRP engine already runs FastAPI. Chainlit plugs in with one function call (`mount_chainlit`), inherits your existing endpoints, and adds a production-grade chat UI at `/chat`.
 
 ```bash
 pip install chainlit>=2.10.0
@@ -43,60 +43,7 @@ cd server && python app.py
 # Chat  → http://localhost:8100/chat
 ```
 
-The Chainlit integration lives in `server/cl_app.py`.  Customise it to add step indicators for each IRP phase (Identification → Containment → Eradication → Recovery).
-
----
-
-### Option 3: Open WebUI
-
-[Open WebUI](https://github.com/open-webui/open-webui) (129k+ stars) is a full self-hosted AI platform.  It runs as a separate Docker container and connects to any OpenAI-compatible API — which means you point it at Gone-Phishing's `/api/chat` endpoint.
-
-**Why it's a good fit:** If you're already running Ollama or want a multi-model workspace with RAG, voice, and admin controls, Open WebUI is the nuclear option.
-
-```bash
-# 1. Run Open WebUI
-docker run -d -p 3000:8080 \
-  -v open-webui:/app/backend/data \
-  --name open-webui \
-  --restart always \
-  ghcr.io/open-webui/open-webui:main
-
-# 2. In Open WebUI settings → Connections, add a custom endpoint:
-#    Base URL:  http://host.docker.internal:8100
-#    (or your server's LAN IP)
-```
-
-Gone-Phishing's API is already OpenAI-shape enough for basic chat.  For full compatibility, a thin adapter that maps `/v1/chat/completions` to `/api/chat` is included at `server/openai_compat.py` (TODO — straightforward to add if you go this route).
-
----
-
-### Option 4: Gradio
-
-[Gradio](https://github.com/gradio-app/gradio) (Hugging Face, Apache 2.0) is the fastest path from zero to interactive demo.  Three lines of Python gives you a chat interface with streaming.
-
-```python
-# server/gradio_app.py  (create this file)
-import gradio as gr
-import httpx
-
-def chat(message, history):
-    messages = [{"role": r, "content": c} for r, c in history] + [{"role": "user", "content": message}]
-    if len(messages) == 1:
-        resp = httpx.post("http://localhost:8100/api/incident", json={"description": message})
-        return resp.json().get("action_plan", "Error")
-    resp = httpx.post("http://localhost:8100/api/chat", json={"messages": messages})
-    return resp.json().get("response", "Error")
-
-gr.ChatInterface(chat, title="Gone-Phishing IRP").launch(server_port=7860)
-```
-
-```bash
-pip install gradio
-python server/gradio_app.py
-# → http://localhost:7860
-```
-
-Good for rapid prototyping and internal demos.  Not recommended for production.
+The Chainlit integration lives in `server/cl_app.py`. Customise it to add step indicators for each IRP phase (Identification → Containment → Eradication → Recovery).
 
 ---
 
@@ -113,7 +60,7 @@ The CW integration (`server/tools/cw_tools.py`) is an MCP client that spawns you
 └──────────────┘                  └────────────────┘
 ```
 
-Gone-Phishing spawns the Node process, establishes an MCP session, and calls tools like `cw_create_ticket` and `cw_add_ticket_note` through the protocol.  The session is lazily initialised on first tool call and automatically reconnects if the subprocess dies.
+Gone-Phishing spawns the Node process, establishes an MCP session, and calls tools like `cw_create_ticket` and `cw_add_ticket_note` through the protocol. The session is lazily initialised on first tool call and automatically reconnects if the subprocess dies.
 
 ### Setup
 
@@ -138,24 +85,24 @@ CW_BASE_URL=https://api-na.myconnectwise.net
 
 `cw_tools.py` wraps these tools from the 73-tool MCP server:
 
-| Python function             | MCP tool               | Purpose                           |
-|----------------------------|------------------------|-----------------------------------|
-| `tool_create_ticket()`      | `cw_create_ticket`     | Create incident ticket            |
-| `tool_get_ticket()`         | `cw_get_ticket`        | Look up ticket by ID              |
-| `tool_update_ticket()`      | `cw_update_ticket`     | Update via JSON Patch             |
-| `tool_add_ticket_note()`    | `cw_add_ticket_note`   | Add internal/external notes       |
-| `tool_list_tickets()`       | `cw_list_tickets`      | Search with CW conditions syntax  |
-| `tool_list_ticket_notes()`  | `cw_list_ticket_notes` | List notes on a ticket            |
-| `tool_list_companies()`     | `cw_list_companies`    | Resolve company IDs               |
-| `tool_list_boards()`        | `cw_list_boards`       | Resolve board IDs                 |
-| `tool_list_board_statuses()`| `cw_list_board_statuses`| Valid statuses for a board        |
-| `tool_list_members()`       | `cw_list_members`      | Resolve owner identifiers         |
+| Python function              | MCP tool                 | Purpose                          |
+| ---------------------------- | ------------------------ | -------------------------------- |
+| `tool_create_ticket()`       | `cw_create_ticket`       | Create incident ticket           |
+| `tool_get_ticket()`          | `cw_get_ticket`          | Look up ticket by ID             |
+| `tool_update_ticket()`       | `cw_update_ticket`       | Update via JSON Patch            |
+| `tool_add_ticket_note()`     | `cw_add_ticket_note`     | Add internal/external notes      |
+| `tool_list_tickets()`        | `cw_list_tickets`        | Search with CW conditions syntax |
+| `tool_list_ticket_notes()`   | `cw_list_ticket_notes`   | List notes on a ticket           |
+| `tool_list_companies()`      | `cw_list_companies`      | Resolve company IDs              |
+| `tool_list_boards()`         | `cw_list_boards`         | Resolve board IDs                |
+| `tool_list_board_statuses()` | `cw_list_board_statuses` | Valid statuses for a board       |
+| `tool_list_members()`        | `cw_list_members`        | Resolve owner identifiers        |
 
 All 73 tools remain available if you need to extend beyond this subset — just add more wrapper functions following the same `_call_tool()` pattern.
 
 ### Graceful degradation
 
-If `CW_MCP_SERVER_DIR` is not set or the server can't start, every tool function returns an error dict.  The IRP engine stays fully operational — you just won't get CW ticket integration.
+If `CW_MCP_SERVER_DIR` is not set or the server can't start, every tool function returns an error dict. The IRP engine stays fully operational — you just won't get CW ticket integration.
 
 ### For Railway deployment
 
@@ -179,13 +126,13 @@ The N8N integration (`server/tools/n8n_tools.py`) fires webhooks into your N8N i
 1. Import or build the matching workflows in your N8N instance.
 2. Each workflow should expose a webhook trigger node at these paths:
 
-   | Webhook path         | Purpose                        |
-   |----------------------|--------------------------------|
-   | `/irp-escalation`    | Severity-based alert fan-out   |
-   | `/irp-evidence`      | RMM evidence collection        |
-   | `/irp-notify`        | General notification routing   |
+   | Webhook path      | Purpose                      |
+   | ----------------- | ---------------------------- |
+   | `/irp-escalation` | Severity-based alert fan-out |
+   | `/irp-evidence`   | RMM evidence collection      |
+   | `/irp-notify`     | General notification routing |
 
-3. Set `N8N_BASE_URL` in `.env`.  Optionally set `N8N_WEBHOOK_SECRET` if your workflows validate it.
+3. Set `N8N_BASE_URL` in `.env`. Optionally set `N8N_WEBHOOK_SECRET` if your workflows validate it.
 
 ---
 
@@ -193,12 +140,12 @@ The N8N integration (`server/tools/n8n_tools.py`) fires webhooks into your N8N i
 
 Set `LLM_PROVIDER` and `LLM_MODEL` in `.env`.
 
-| Provider    | Required env var       | Example model                     |
-|-------------|------------------------|-----------------------------------|
-| `anthropic` | `ANTHROPIC_API_KEY`    | `claude-sonnet-4-20250514`       |
-| `openai`    | `OPENAI_API_KEY`       | `gpt-4o`                          |
-| `gemini`    | `GOOGLE_API_KEY`       | `gemini-1.5-pro`                  |
-| `ollama`    | `OLLAMA_BASE_URL`      | Set via `OLLAMA_MODEL`            |
+| Provider    | Required env var    | Example model              |
+| ----------- | ------------------- | -------------------------- |
+| `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| `openai`    | `OPENAI_API_KEY`    | `gpt-4o`                   |
+| `gemini`    | `GOOGLE_API_KEY`    | `gemini-1.5-pro`           |
+| `ollama`    | `OLLAMA_BASE_URL`   | Set via `OLLAMA_MODEL`     |
 
 For Ollama, make sure `ollama serve` is running and you've pulled the model:
 
@@ -235,14 +182,14 @@ Or connect via GitHub:
 
 Set these in the Railway dashboard under your service's **Variables** tab:
 
-| Variable            | Required | Example                        |
-|---------------------|----------|--------------------------------|
-| `ANTHROPIC_API_KEY` | Yes*     | `sk-ant-...`                   |
-| `LLM_PROVIDER`      | No       | `anthropic` (default)          |
-| `LLM_MODEL`         | No       | `claude-sonnet-4-20250514`    |
-| `CHAT_UI`           | No       | `builtin` (default)            |
+| Variable            | Required | Example                    |
+| ------------------- | -------- | -------------------------- |
+| `ANTHROPIC_API_KEY` | Yes\*    | `sk-ant-...`               |
+| `LLM_PROVIDER`      | No       | `anthropic` (default)      |
+| `LLM_MODEL`         | No       | `claude-sonnet-4-20250514` |
+| `CHAT_UI`           | No       | `builtin` (default)        |
 
-*Required for default config. Set your chosen provider's key instead if using OpenAI/Gemini.
+\*Required for default config. Set your chosen provider's key instead if using OpenAI/Gemini.
 
 Railway auto-injects `PORT` — the app binds to it automatically.
 

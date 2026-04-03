@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapters import get_adapter
-from llm import SYSTEM_PROMPT, generate_action_plan
-from vector_store import ingest_playbooks, list_playbooks, search_playbooks
+from llm import generate_action_plan
+from vector_store import list_playbooks, search_playbooks
 
 
 def tool_search_playbooks(query: str, n_results: int = 5) -> dict[str, Any]:

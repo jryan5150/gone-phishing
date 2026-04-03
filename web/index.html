@@ -172,9 +172,10 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 16px;
-        height: 52px;
+        padding: 0 20px;
+        height: 48px;
         border-bottom: 1px solid var(--border-default);
+        border-top: 2px solid var(--accent);
         background: var(--bg-surface);
         transition:
           background var(--transition-theme),
@@ -327,7 +328,7 @@
       .messages {
         flex: 1;
         overflow-y: auto;
-        padding: 20px 16px;
+        padding: 20px 24px;
         scroll-behavior: smooth;
       }
 
@@ -513,7 +514,7 @@
       }
 
       .quick-btn {
-        padding: 14px 16px;
+        padding: 12px 14px;
         border-radius: var(--radius-md);
         border: 1px solid var(--border-default);
         background: var(--bg-surface);
@@ -526,9 +527,10 @@
         transition: all var(--transition-fast);
         position: relative;
         overflow: hidden;
-        min-height: 48px;
+        min-height: 56px;
         display: flex;
         align-items: center;
+        gap: 12px;
       }
 
       .quick-btn::before {
@@ -540,21 +542,21 @@
         width: 3px;
       }
 
-      .quick-btn:nth-child(1)::before {
+      .quick-btn.severity-high::before {
         background: var(--severity-high);
       }
-      .quick-btn:nth-child(2)::before {
+      .quick-btn.severity-critical::before {
         background: var(--severity-critical);
       }
-      .quick-btn:nth-child(3)::before {
+      .quick-btn.severity-medium::before {
         background: var(--severity-medium);
       }
-      .quick-btn:nth-child(4)::before {
-        background: var(--severity-high);
+      .quick-btn.severity-low::before {
+        background: var(--severity-low);
       }
 
       .quick-btn:hover {
-        border-color: var(--accent);
+        border-color: var(--border-strong);
         color: var(--text-primary);
         background: var(--bg-elevated);
         transform: translateY(-1px);
@@ -563,6 +565,66 @@
 
       .quick-btn:active {
         transform: translateY(0);
+      }
+
+      /* Severity badges */
+      .severity-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.6rem;
+        font-family: var(--font-mono);
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        flex-shrink: 0;
+        min-width: 36px;
+      }
+
+      .severity-badge.critical {
+        background: rgba(255, 59, 92, 0.15);
+        color: var(--severity-critical);
+        border: 1px solid rgba(255, 59, 92, 0.3);
+      }
+
+      .severity-badge.high {
+        background: rgba(255, 107, 61, 0.15);
+        color: var(--severity-high);
+        border: 1px solid rgba(255, 107, 61, 0.3);
+      }
+
+      .severity-badge.medium {
+        background: rgba(255, 184, 48, 0.15);
+        color: var(--severity-medium);
+        border: 1px solid rgba(255, 184, 48, 0.3);
+      }
+
+      .severity-badge.low {
+        background: rgba(0, 212, 170, 0.15);
+        color: var(--severity-low);
+        border: 1px solid rgba(0, 212, 170, 0.3);
+      }
+
+      .quick-btn-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .quick-btn-title {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        transition: color var(--transition-theme);
+      }
+
+      .quick-btn-desc {
+        font-size: 0.7rem;
+        color: var(--text-tertiary);
+        font-family: var(--font-mono);
+        transition: color var(--transition-theme);
       }
 
       /* ============================================
@@ -722,20 +784,37 @@
       /* ============================================
          WELCOME PANEL
          ============================================ */
+      .welcome-panel {
+        padding: 28px 0 8px;
+        max-width: 860px;
+      }
+
       .welcome-title {
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: var(--text-primary);
-        margin-bottom: 4px;
+        margin-bottom: 6px;
         font-family: var(--font-body);
         transition: color var(--transition-theme);
       }
 
       .welcome-sub {
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         color: var(--text-tertiary);
         margin-bottom: 20px;
         font-family: var(--font-mono);
+        line-height: 1.5;
+        transition: color var(--transition-theme);
+      }
+
+      .section-label {
+        font-size: 0.62rem;
+        font-family: var(--font-mono);
+        color: var(--text-ghost);
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 10px;
+        font-weight: 600;
         transition: color var(--transition-theme);
       }
 
@@ -826,51 +905,76 @@
     </div>
 
     <div class="messages" id="messages">
-      <div style="padding: 20px 0">
+      <div class="welcome-panel">
         <div class="welcome-title">Report an incident</div>
         <div class="welcome-sub">
           Describe what happened and I'll generate an actionable response plan.
         </div>
+        <div class="section-label">Common scenarios</div>
         <div class="quick-actions" id="quickActions">
           <button
-            class="quick-btn"
+            class="quick-btn severity-high"
             onclick="
               send(
                 'A user reported they clicked a link in a suspicious email and entered their Microsoft 365 credentials on a spoofed login page.',
               )
             "
           >
-            Phishing -- user clicked link
+            <span class="severity-badge high">HIGH</span>
+            <span class="quick-btn-content">
+              <span class="quick-btn-title"
+                >Phishing -- credential compromise</span
+              >
+              <span class="quick-btn-desc"
+                >User clicked link, entered M365 creds</span
+              >
+            </span>
           </button>
           <button
-            class="quick-btn"
+            class="quick-btn severity-critical"
             onclick="
               send(
                 'Multiple users report encrypted files with ransom notes on three workstations. File extensions changed to .encrypted across the shared drive.',
               )
             "
           >
-            Ransomware detected
+            <span class="severity-badge critical">CRIT</span>
+            <span class="quick-btn-content">
+              <span class="quick-btn-title">Ransomware detected</span>
+              <span class="quick-btn-desc"
+                >Encrypted files on 3 workstations</span
+              >
+            </span>
           </button>
           <button
-            class="quick-btn"
+            class="quick-btn severity-medium"
             onclick="
               send(
                 'SIEM flagged 2GB data exfiltration to external IP overnight from database server containing customer PII.',
               )
             "
           >
-            Suspected data breach
+            <span class="severity-badge medium">MED</span>
+            <span class="quick-btn-content">
+              <span class="quick-btn-title">Suspected data breach</span>
+              <span class="quick-btn-desc">2GB exfil flagged by SIEM</span>
+            </span>
           </button>
           <button
-            class="quick-btn"
+            class="quick-btn severity-high"
             onclick="
               send(
                 'Finance processed an $85,000 wire transfer 30 minutes ago based on a fraudulent email appearing to be from the CFO. The sender domain was misspelled.',
               )
             "
           >
-            BEC -- wire fraud attempt
+            <span class="severity-badge high">HIGH</span>
+            <span class="quick-btn-content">
+              <span class="quick-btn-title">BEC -- wire fraud attempt</span>
+              <span class="quick-btn-desc"
+                >$85K wire from spoofed CFO email</span
+              >
+            </span>
           </button>
         </div>
       </div>

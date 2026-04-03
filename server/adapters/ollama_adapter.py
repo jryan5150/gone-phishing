@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import time
+
 import httpx
 
 from .base import LLMAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaAdapter(LLMAdapter):
@@ -24,12 +29,15 @@ class OllamaAdapter(LLMAdapter):
             "stream": False,
             "options": {"num_predict": max_tokens},
         }
+        start = time.monotonic()
         resp = httpx.post(
             f"{self._base_url}/api/chat",
             json=payload,
             timeout=120.0,
         )
         resp.raise_for_status()
+        elapsed = time.monotonic() - start
+        logger.info("ollama model=%s %.1fs", self._model, elapsed)
         return resp.json()["message"]["content"]
 
     @property

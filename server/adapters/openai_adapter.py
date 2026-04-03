@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import time
+
 from openai import OpenAI
 
 from .base import LLMAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIAdapter(LLMAdapter):
@@ -18,12 +23,20 @@ class OpenAIAdapter(LLMAdapter):
         messages: list[dict[str, str]],
         max_tokens: int = 4096,
     ) -> str:
+        start = time.monotonic()
         full = [{"role": "system", "content": system}, *messages]
         resp = self._client.chat.completions.create(
             model=self._model,
             max_tokens=max_tokens,
             messages=full,
         )
+        elapsed = time.monotonic() - start
+        usage = resp.usage
+        if usage:
+            logger.info(
+                "openai model=%s in=%d out=%d %.1fs",
+                self._model, usage.prompt_tokens, usage.completion_tokens, elapsed,
+            )
         return resp.choices[0].message.content or ""
 
     @property

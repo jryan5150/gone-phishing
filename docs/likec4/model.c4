@@ -14,12 +14,6 @@ specification {
       color slate
     }
   }
-  element pipeline {
-    style {
-      shape rectangle
-      color indigo
-    }
-  }
   element component {
     style {
       shape rectangle
@@ -36,18 +30,6 @@ specification {
     style {
       shape rectangle
       color muted
-    }
-  }
-  element llm {
-    style {
-      shape rectangle
-      color amber
-    }
-  }
-
-  relationship async {
-    style {
-      line dashed
     }
   }
 
@@ -73,95 +55,61 @@ model {
   irp = system 'Gone-Phishing IRP Engine' {
     description 'AI-powered Incident Response Plan engine for MSPs. Deterministic pipeline — not an autonomous agent.'
 
-    // ── User Interface ──
-
     ui = component 'Chat UI' {
       description 'Single-file dark-theme web interface. Sends incident description, displays action plan with pipeline status cards.'
-      technology 'HTML/JS (zero deps)'
+      technology 'HTML/JS'
       style {
         shape browser
       }
     }
 
-    // ── API Layer ──
-
     api = component 'FastAPI Server' {
       description 'Orchestrates the pipeline. Rate-limited, security-hardened. Each step is an explicit function call — no agent loop.'
       technology 'Python / FastAPI'
-
-      endpoint_respond = component '/api/incident/respond' {
-        #critical
-        description 'Full pipeline endpoint: plan generation → CW ticket → N8N escalation. Each step degrades gracefully if its service is unavailable.'
-        technology 'POST'
-      }
-
-      endpoint_chat = component '/api/chat' {
-        description 'Follow-up questions with playbook context injection'
-        technology 'POST'
-      }
-
-      endpoint_health = component '/api/health' {
-        description 'Liveness check with ChromaDB and LLM status'
-        technology 'GET'
-      }
     }
 
-    // ── Retrieval ──
-
     vectordb = database 'ChromaDB' {
-      description '11 NIST 800-61 playbooks embedded as vectors. Cosine similarity search returns top 8 matching chunks. Auto-rebuilds from markdown files on restart.'
+      description '11 NIST 800-61 playbooks embedded as vectors. Cosine similarity search returns top 8 matching chunks.'
       technology 'sentence-transformers'
     }
 
     playbooks = component 'Playbook Files' {
-      description 'Markdown files: phishing, ransomware, data breach, BEC, severity classification, response phases, communication plan, regulatory requirements, incident categories, tabletop scenarios, report form'
+      description 'Phishing, ransomware, data breach, BEC, severity classification, response phases, communication plan, regulatory requirements'
       technology '11 Markdown files'
       style {
         shape queue
       }
     }
 
-    // ── Prompt Assembly ──
-
     prompt_assembly = component 'Prompt Assembly' {
-      description 'Constructs a structured prompt from: incident description + matched playbook chunks + static system prompt. The LLM receives this as read-only input.'
+      description 'Constructs structured prompt from incident description + matched playbook chunks + system instructions. The LLM receives this as read-only input.'
       technology 'Python'
     }
 
-    // ── LLM (Completion Engine) ──
-
-    llm_adapter = llm 'LLM Completion' {
+    llm_adapter = component 'LLM Completion' {
       #completion-only
-      description '''
-        NOT AN AGENT. A completion engine that receives a structured prompt
-        and returns formatted text. No tools, no memory, no loops, no decisions.
-
-        BYOM: Claude | GPT-4o | Gemini | Ollama (local)
-
-        Receives: incident + playbook context + system instructions
-        Returns: role-assigned action plan (markdown checklist)
-        Never sees: credentials, ticket IDs, internal systems
-      '''
+      description 'NOT AN AGENT. Completion engine that receives a structured prompt and returns formatted text. No tools, no memory, no loops, no decisions. BYOM: Claude, GPT-4o, Gemini, Ollama.'
       technology 'BYOM Adapter'
+      style {
+        color amber
+      }
     }
-
-    // ── Dispatch ──
 
     cw_rest = component 'CW REST Client' {
       #graceful-degradation
-      description 'Direct ConnectWise Manage REST API client. Creates incident ticket and adds AI-generated action plan as internal note. Skips cleanly if credentials not configured.'
+      description 'Direct ConnectWise REST API. Creates incident ticket, adds action plan as internal note. Skips cleanly if not configured.'
       technology 'httpx'
     }
 
     n8n_hook = component 'N8N Webhook' {
       #graceful-degradation
-      description 'Fire-and-forget webhook to N8N escalation workflow. Sends incident ID, severity, and summary. Returns immediately — N8N handles the fan-out.'
+      description 'Fire-and-forget webhook to N8N. Sends incident ID, severity, summary. Returns immediately.'
       technology 'httpx'
     }
 
     scenarios = database 'Scenario Corpus' {
-      description '2,000 procedurally generated incident scenarios across 10 categories. Seeded from MITRE ATT&CK techniques. Used for tabletop exercises and playbook gap analysis.'
-      technology 'JSON (2K scenarios)'
+      description '2,000 generated incident scenarios across 10 categories. Seeded from MITRE ATT&CK. For tabletop exercises and playbook gap analysis.'
+      technology 'JSON'
     }
   }
 
@@ -173,41 +121,43 @@ model {
   }
 
   n8n = external 'N8N' {
-    description 'Workflow automation. Receives webhook, routes by severity: S1 → immediate email + Teams, S2-S4 → standard alert.'
+    description 'Workflow automation. Routes by severity: S1 immediate, S2-S4 standard alert. Email + Teams fan-out.'
     technology 'Webhook'
   }
 
   llm_provider = external 'LLM Provider' {
-    description 'Anthropic (Claude), OpenAI (GPT-4o), Google (Gemini), or Ollama (local). Interchangeable via one env var.'
+    description 'Anthropic Claude, OpenAI GPT-4o, Google Gemini, or Ollama local. Swap with one env var.'
     technology 'HTTPS API'
+    style {
+      color amber
+    }
   }
 
   // ─── Relationships ───────────────────────────────────────
 
   // User flow
-  technician -> ui 'reports incident'
+  technician -> irp.ui 'reports incident'
   ir_lead -> connectwise 'works ticket'
 
-  // UI → API
-  ui -> endpoint_respond 'POST incident description'
-  ui -> endpoint_chat 'POST follow-up questions'
+  // UI to API
+  irp.ui -> irp.api 'POST /api/incident/respond'
 
   // Pipeline: search
-  endpoint_respond -> vectordb 'semantic search (top 8 chunks)'
-  playbooks -> vectordb 'embedded on startup'
+  irp.api -> irp.vectordb 'semantic search (top 8 chunks)'
+  irp.playbooks -> irp.vectordb 'embedded on startup'
 
   // Pipeline: assembly
-  endpoint_respond -> prompt_assembly 'incident + matched chunks'
+  irp.api -> irp.prompt_assembly 'incident + matched chunks'
 
   // Pipeline: LLM completion (NOT agent tool-use)
-  prompt_assembly -> llm_adapter 'structured prompt (read-only, no tools)'
-  llm_adapter -> llm_provider 'HTTPS completion request'
+  irp.prompt_assembly -> irp.llm_adapter 'structured prompt (read-only, no tools)'
+  irp.llm_adapter -> llm_provider 'HTTPS completion request'
 
   // Pipeline: dispatch
-  endpoint_respond -> cw_rest 'create ticket + add plan as note'
-  endpoint_respond -> n8n_hook 'fire escalation webhook'
-  cw_rest -> connectwise 'REST API calls'
-  n8n_hook -[async]-> n8n 'fire-and-forget webhook'
+  irp.api -> irp.cw_rest 'create ticket + add plan as note'
+  irp.api -> irp.n8n_hook 'fire escalation webhook'
+  irp.cw_rest -> connectwise 'REST API calls'
+  irp.n8n_hook -> n8n 'fire-and-forget webhook'
 
   // N8N fan-out
   n8n -> ir_lead 'email / Teams / Slack alert'

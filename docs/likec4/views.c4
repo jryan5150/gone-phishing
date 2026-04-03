@@ -1,14 +1,11 @@
 // Gone-Phishing — Architecture Views
-// Each view is a different zoom level for a different audience.
 
 views {
 
-  // ─── View 1: Landscape (for Klint / leadership) ─────────
-  // Shows the system in context: who uses it, what it connects to.
-
+  // View 1: System Context (for Klint / leadership)
   view landscape {
     title 'IRP Engine — System Context'
-    description 'What the system does and what it talks to. The LLM is a completion engine, not an agent.'
+    description 'What the system does and what it connects to'
 
     include
       technician,
@@ -17,101 +14,80 @@ views {
       connectwise,
       n8n,
       llm_provider
-
-    style irp {
-      color indigo
-    }
-    style llm_provider {
-      color amber
-    }
   }
 
-  // ─── View 2: Inside the Engine (for Daniel / IR team) ───
-  // Shows every component inside the pipeline.
-
+  // View 2: Inside the Engine (for Daniel / IR team)
   view of irp {
     title 'IRP Engine — Internal Architecture'
-    description 'Every component and how data flows through the pipeline. Each step is an explicit function call — no agent autonomy.'
+    description 'Every component and data flow. Each step is an explicit function call — no agent autonomy.'
 
     include *
 
-    style llm_adapter {
+    style irp.llm_adapter {
       color amber
-    }
-    style cw_rest {
-      color green
-    }
-    style n8n_hook {
-      color green
     }
   }
 
-  // ─── View 3: The Pipeline (for technical deep-dive) ─────
-  // Focuses on the /api/incident/respond flow specifically.
-
+  // View 3: Pipeline deep-dive (for technical walkthrough)
   view pipeline {
     title 'Incident Pipeline — Step by Step'
-    description 'POST /api/incident/respond chains: vector search → prompt assembly → LLM completion → CW ticket → N8N escalation. Each step degrades gracefully.'
+    description 'POST /api/incident/respond chains: vector search, prompt assembly, LLM completion, CW ticket, N8N escalation'
 
     include
       technician,
-      ui,
-      endpoint_respond,
-      vectordb,
-      playbooks,
-      prompt_assembly,
-      llm_adapter,
+      irp.ui,
+      irp.api,
+      irp.vectordb,
+      irp.playbooks,
+      irp.prompt_assembly,
+      irp.llm_adapter,
       llm_provider,
-      cw_rest,
-      n8n_hook,
+      irp.cw_rest,
+      irp.n8n_hook,
       connectwise,
       n8n,
       ir_lead
 
-    style llm_adapter {
+    style irp.llm_adapter {
       color amber
     }
   }
 
-  // ─── View 4: LLM Boundary (for the "not an agent" conversation) ──
-  // Shows exactly what the LLM can and cannot see/do.
-
+  // View 4: LLM Boundary (for the "not an agent" conversation)
   view llm_boundary {
-    title 'LLM Boundary — What It Sees vs. What It Touches'
-    description 'The LLM receives a structured prompt and returns text. It has no tools, no memory, no agency. It never sees credentials, ticket IDs, or internal systems.'
+    title 'LLM Boundary — Completion Only'
+    description 'The LLM receives a prompt and returns text. No tools, no memory, no agency.'
 
     include
-      prompt_assembly,
-      llm_adapter,
+      irp.prompt_assembly,
+      irp.llm_adapter,
       llm_provider
 
-    style llm_adapter {
+    style irp.llm_adapter {
       color amber
     }
   }
 
-  // ─── View 5: Graceful Degradation ───────────────────────
-  // Shows what still works when external services are down.
-
+  // View 5: Graceful Degradation
   view degradation {
     title 'Graceful Degradation'
-    description 'Each integration is independent. If CW is down, the plan still generates. If N8N is unreachable, the ticket still gets created.'
+    description 'Each integration is independent. CW down? Plan still generates. N8N unreachable? Ticket still created.'
 
     include
-      endpoint_respond,
-      vectordb,
-      prompt_assembly,
-      llm_adapter,
+      irp.api,
+      irp.vectordb,
+      irp.prompt_assembly,
+      irp.llm_adapter,
       llm_provider,
-      cw_rest,
-      n8n_hook,
+      irp.cw_rest,
+      irp.n8n_hook,
       connectwise,
       n8n
 
-    style cw_rest {
+    style irp.cw_rest {
       color green
     }
-    style n8n_hook {
+    style irp.n8n_hook {
       color green
     }
   }

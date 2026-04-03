@@ -156,8 +156,37 @@
         background-image:
           linear-gradient(var(--border-subtle) 1px, transparent 1px),
           linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
-        background-size: 40px 40px;
-        opacity: 0.15;
+        background-size: 48px 48px;
+        opacity: 0.12;
+        mask-image: radial-gradient(
+          ellipse 80% 70% at 50% 40%,
+          black 20%,
+          transparent 80%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse 80% 70% at 50% 40%,
+          black 20%,
+          transparent 80%
+        );
+      }
+
+      /* Ambient glow behind content */
+      body::after {
+        content: "";
+        position: fixed;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 600px;
+        height: 400px;
+        background: radial-gradient(
+          ellipse,
+          var(--accent-glow) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.6;
       }
 
       body > * {
@@ -189,18 +218,26 @@
       }
 
       .logo-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: var(--radius-sm);
+        width: 30px;
+        height: 34px;
         background: var(--accent);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         font-weight: 700;
         color: var(--bg-base);
         font-family: var(--font-mono);
         letter-spacing: 0.5px;
+        clip-path: polygon(
+          50% 0%,
+          100% 10%,
+          100% 70%,
+          50% 100%,
+          0% 70%,
+          0% 10%
+        );
+        padding-bottom: 4px;
       }
 
       .logo-text {
@@ -563,6 +600,21 @@
         box-shadow: var(--shadow-md);
       }
 
+      .quick-btn.severity-critical:hover {
+        border-color: rgba(255, 59, 92, 0.35);
+        box-shadow: 0 4px 16px rgba(255, 59, 92, 0.08);
+      }
+
+      .quick-btn.severity-high:hover {
+        border-color: rgba(255, 107, 61, 0.35);
+        box-shadow: 0 4px 16px rgba(255, 107, 61, 0.08);
+      }
+
+      .quick-btn.severity-medium:hover {
+        border-color: rgba(255, 184, 48, 0.35);
+        box-shadow: 0 4px 16px rgba(255, 184, 48, 0.08);
+      }
+
       .quick-btn:active {
         transform: translateY(0);
       }
@@ -631,9 +683,32 @@
          INPUT AREA
          ============================================ */
       .input-area {
-        padding: 12px 16px;
+        padding: 10px 24px 12px;
         border-top: 1px solid var(--border-default);
         background: var(--bg-surface);
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
+      }
+
+      .input-hint {
+        font-size: 0.6rem;
+        font-family: var(--font-mono);
+        color: var(--text-ghost);
+        text-align: right;
+        padding: 4px 4px 0;
+        letter-spacing: 0.3px;
+        transition: color var(--transition-theme);
+      }
+
+      .input-hint kbd {
+        display: inline-block;
+        padding: 1px 4px;
+        border-radius: 3px;
+        border: 1px solid var(--border-default);
+        background: var(--bg-elevated);
+        font-family: var(--font-mono);
+        font-size: 0.58rem;
         transition:
           background var(--transition-theme),
           border-color var(--transition-theme);
@@ -923,7 +998,7 @@
             <span class="severity-badge high">HIGH</span>
             <span class="quick-btn-content">
               <span class="quick-btn-title"
-                >Phishing -- credential compromise</span
+                >Phishing &mdash; credential compromise</span
               >
               <span class="quick-btn-desc"
                 >User clicked link, entered M365 creds</span
@@ -970,7 +1045,9 @@
           >
             <span class="severity-badge high">HIGH</span>
             <span class="quick-btn-content">
-              <span class="quick-btn-title">BEC -- wire fraud attempt</span>
+              <span class="quick-btn-title"
+                >BEC &mdash; wire fraud attempt</span
+              >
               <span class="quick-btn-desc"
                 >$85K wire from spoofed CFO email</span
               >
@@ -994,6 +1071,9 @@
           "
         ></textarea>
         <button class="send-btn" id="sendBtn" onclick="send()">SEND</button>
+      </div>
+      <div class="input-hint">
+        <kbd>Enter</kbd> to send &middot; <kbd>Shift+Enter</kbd> new line
       </div>
     </div>
 

@@ -5,6 +5,9 @@ echo "═══ Gone-Phishing — starting ═══"
 
 cd /app/server
 
+echo "Validating configuration..."
+python -c "from config import validate; validate()"
+
 echo "Ingesting playbooks..."
 python -c "
 from vector_store import ingest_playbooks

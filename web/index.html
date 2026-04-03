@@ -4,206 +4,708 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lexcom IRP Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      /* Theme init — runs before DOM render to prevent flash */
+      function initTheme() {
+        const saved = localStorage.getItem("gp-theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        const theme = saved || (prefersDark ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      }
+      initTheme();
+    </script>
     <style>
+      /* ============================================
+         THEME: CSS Custom Properties
+         ============================================ */
+      :root {
+        /* Dark theme (default) — SOC aesthetic */
+        --bg-base: #080b12;
+        --bg-surface: #0c1019;
+        --bg-elevated: #111722;
+        --bg-overlay: #161d2b;
+        --bg-input: #131a27;
+
+        --border-subtle: #1a2235;
+        --border-default: #1e2a3e;
+        --border-strong: #2a3a52;
+
+        --text-primary: #e8ecf2;
+        --text-secondary: #8896ab;
+        --text-tertiary: #566476;
+        --text-ghost: #3a4a5e;
+
+        --accent: #00d4aa;
+        --accent-dim: #00a88640;
+        --accent-glow: #00d4aa18;
+        --accent-text: #00d4aa;
+
+        --severity-critical: #ff3b5c;
+        --severity-high: #ff6b3d;
+        --severity-medium: #ffb830;
+        --severity-low: #00d4aa;
+
+        --status-online: #00d4aa;
+        --status-offline: #ff3b5c;
+
+        --code-bg: #0e1420;
+        --code-text: #00d4aa;
+
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+
+        --font-body: "Space Grotesk", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+        --transition-fast: 0.15s ease;
+        --transition-theme: 0.3s ease;
+      }
+
+      [data-theme="light"] {
+        --bg-base: #f0f2f5;
+        --bg-surface: #f7f8fa;
+        --bg-elevated: #ffffff;
+        --bg-overlay: #e8ebf0;
+        --bg-input: #ffffff;
+
+        --border-subtle: #dce0e8;
+        --border-default: #c8cdd6;
+        --border-strong: #b0b8c4;
+
+        --text-primary: #0c1222;
+        --text-secondary: #4a5568;
+        --text-tertiary: #718096;
+        --text-ghost: #a0aec0;
+
+        --accent: #0a8f72;
+        --accent-dim: #0a8f7230;
+        --accent-glow: #0a8f7212;
+        --accent-text: #087a62;
+
+        --severity-critical: #dc2626;
+        --severity-high: #ea580c;
+        --severity-medium: #d97706;
+        --severity-low: #0a8f72;
+
+        --status-online: #0a8f72;
+        --status-offline: #dc2626;
+
+        --code-bg: #f0f2f5;
+        --code-text: #087a62;
+
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+      }
+
+      /* ============================================
+         REDUCED MOTION
+         ============================================ */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /* ============================================
+         RESET & BASE
+         ============================================ */
       * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
+
       body {
-        font-family:
-          "IBM Plex Sans",
-          -apple-system,
-          sans-serif;
-        background: #0a0f1a;
-        color: #cbd5e1;
+        font-family: var(--font-body);
+        background: var(--bg-base);
+        color: var(--text-secondary);
         height: 100vh;
         display: flex;
         flex-direction: column;
+        transition:
+          background var(--transition-theme),
+          color var(--transition-theme);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
+
+      /* Subtle grid texture overlay */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image:
+          linear-gradient(var(--border-subtle) 1px, transparent 1px),
+          linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+        background-size: 40px 40px;
+        opacity: 0.15;
+      }
+
+      body > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ============================================
+         HEADER — Security Dashboard Toolbar
+         ============================================ */
       .header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px;
-        border-bottom: 1px solid #1e293b;
-        background: linear-gradient(180deg, #0f172a, #0a0f1a);
+        padding: 0 16px;
+        height: 52px;
+        border-bottom: 1px solid var(--border-default);
+        background: var(--bg-surface);
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
       .logo {
         display: flex;
         align-items: center;
         gap: 10px;
       }
+
       .logo-icon {
         width: 32px;
         height: 32px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #f59e0b, #d97706);
+        border-radius: var(--radius-sm);
+        background: var(--accent);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1rem;
-        font-weight: 800;
-        color: #0a0f1a;
-      }
-      .logo-text {
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: #e2e8f0;
-      }
-      .logo-sub {
         font-size: 0.7rem;
-        color: #475569;
+        font-weight: 700;
+        color: var(--bg-base);
+        font-family: var(--font-mono);
+        letter-spacing: 0.5px;
       }
+
+      .logo-text {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: var(--font-mono);
+        letter-spacing: 0.3px;
+        transition: color var(--transition-theme);
+      }
+
+      .logo-sub {
+        font-size: 0.65rem;
+        color: var(--text-tertiary);
+        font-family: var(--font-mono);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        transition: color var(--transition-theme);
+      }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* Theme toggle */
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-md);
+        padding: 2px;
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
+      }
+
+      .theme-toggle button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.72rem;
+        font-family: var(--font-mono);
+        color: var(--text-tertiary);
+        transition: all var(--transition-fast);
+        min-width: 28px;
+        min-height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .theme-toggle button.active {
+        background: var(--accent-dim);
+        color: var(--accent-text);
+      }
+
+      .theme-toggle button:hover:not(.active) {
+        color: var(--text-secondary);
+      }
+
+      /* Status indicator */
+      .status {
+        font-size: 0.65rem;
+        font-family: var(--font-mono);
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all var(--transition-theme);
+      }
+
+      .status::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .status.online {
+        background: rgba(0, 212, 170, 0.1);
+        color: var(--status-online);
+        border: 1px solid rgba(0, 212, 170, 0.2);
+      }
+
+      .status.online::before {
+        background: var(--status-online);
+        box-shadow: 0 0 6px var(--status-online);
+        animation: status-pulse 2s ease-in-out infinite;
+      }
+
+      .status.offline {
+        background: rgba(255, 59, 92, 0.1);
+        color: var(--status-offline);
+        border: 1px solid rgba(255, 59, 92, 0.2);
+      }
+
+      .status.offline::before {
+        background: var(--status-offline);
+      }
+
+      @keyframes status-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      /* ============================================
+         MESSAGES AREA
+         ============================================ */
       .messages {
         flex: 1;
         overflow-y: auto;
-        padding: 16px;
+        padding: 20px 16px;
+        scroll-behavior: smooth;
       }
+
+      /* Scrollbar styling */
+      .messages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .messages::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 3px;
+      }
+
+      .messages::-webkit-scrollbar-thumb:hover {
+        background: var(--text-ghost);
+      }
+
+      /* ============================================
+         MESSAGES — Log Entry Aesthetic
+         ============================================ */
       .message {
         margin-bottom: 16px;
         padding: 14px 16px;
-        border-radius: 10px;
+        border-radius: var(--radius-md);
+        font-size: 0.88rem;
+        line-height: 1.6;
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
       .message.user {
-        background: #1e293b;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-default);
         max-width: 85%;
         margin-left: auto;
         padding: 10px 14px;
+        color: var(--text-primary);
+        font-family: var(--font-body);
       }
+
       .message.assistant {
-        background: #0f172a;
-        border: 1px solid #1e293b;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        border-left: 3px solid var(--accent);
+        font-family: var(--font-body);
+        position: relative;
       }
+
+      .message.assistant::before {
+        content: "IRP ENGINE";
+        position: absolute;
+        top: -1px;
+        left: 12px;
+        font-size: 0.55rem;
+        font-family: var(--font-mono);
+        color: var(--accent-text);
+        background: var(--bg-surface);
+        padding: 0 6px;
+        letter-spacing: 1.5px;
+        font-weight: 600;
+        transform: translateY(-50%);
+      }
+
       .message h1 {
-        font-size: 1.3rem;
-        color: #e2e8f0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text-primary);
         margin: 16px 0 8px;
-        border-bottom: 1px solid #334155;
+        border-bottom: 1px solid var(--border-default);
         padding-bottom: 4px;
+        font-family: var(--font-body);
+        transition:
+          color var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
       .message h2 {
-        font-size: 1.1rem;
-        color: #cbd5e1;
-        margin: 12px 0 6px;
-      }
-      .message h3 {
         font-size: 1rem;
-        color: #94a3b8;
-        margin: 10px 0 4px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 12px 0 6px;
+        font-family: var(--font-body);
+        transition: color var(--transition-theme);
       }
+
+      .message h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin: 10px 0 4px;
+        font-family: var(--font-mono);
+        letter-spacing: 0.3px;
+        transition: color var(--transition-theme);
+      }
+
       .message p {
         margin: 4px 0;
-        line-height: 1.5;
+        line-height: 1.6;
       }
+
       .message strong {
-        color: #e2e8f0;
+        color: var(--text-primary);
+        font-weight: 600;
+        transition: color var(--transition-theme);
       }
+
       .message code {
-        background: #1e293b;
-        padding: 2px 5px;
-        border-radius: 3px;
-        font-size: 0.9em;
-        color: #f59e0b;
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        font-size: 0.82em;
+        color: var(--code-text);
+        font-family: var(--font-mono);
+        border: 1px solid var(--border-subtle);
+        transition:
+          background var(--transition-theme),
+          color var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
       .message ul,
       .message ol {
         padding-left: 20px;
       }
+
       .message li {
         padding: 2px 0;
-        line-height: 1.5;
+        line-height: 1.6;
       }
+
+      .message input[type="checkbox"] {
+        accent-color: var(--accent);
+        margin-right: 6px;
+      }
+
+      .message hr {
+        border: none;
+        border-top: 1px solid var(--border-default);
+        margin: 12px 0;
+      }
+
+      .message table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 8px 0;
+        font-size: 0.82rem;
+        font-family: var(--font-mono);
+      }
+
+      .message th,
+      .message td {
+        border: 1px solid var(--border-default);
+        padding: 6px 10px;
+        text-align: left;
+        transition: border-color var(--transition-theme);
+      }
+
+      .message th {
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        letter-spacing: 0.5px;
+        transition:
+          background var(--transition-theme),
+          color var(--transition-theme);
+      }
+
+      /* ============================================
+         QUICK ACTIONS — Severity Cards
+         ============================================ */
       .quick-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 20px 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 16px 0;
       }
+
       .quick-btn {
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: 1px solid #1e293b;
-        background: #0f172a;
-        color: #94a3b8;
+        padding: 14px 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-default);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
         cursor: pointer;
         text-align: left;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 500;
-        transition: all 0.15s ease;
+        font-family: var(--font-body);
+        transition: all var(--transition-fast);
+        position: relative;
+        overflow: hidden;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
       }
+
+      .quick-btn::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+      }
+
+      .quick-btn:nth-child(1)::before {
+        background: var(--severity-high);
+      }
+      .quick-btn:nth-child(2)::before {
+        background: var(--severity-critical);
+      }
+      .quick-btn:nth-child(3)::before {
+        background: var(--severity-medium);
+      }
+      .quick-btn:nth-child(4)::before {
+        background: var(--severity-high);
+      }
+
       .quick-btn:hover {
-        border-color: #f59e0b;
-        color: #e2e8f0;
+        border-color: var(--accent);
+        color: var(--text-primary);
+        background: var(--bg-elevated);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
       }
+
+      .quick-btn:active {
+        transform: translateY(0);
+      }
+
+      /* ============================================
+         INPUT AREA
+         ============================================ */
       .input-area {
         padding: 12px 16px;
-        border-top: 1px solid #1e293b;
-        background: #0f172a;
+        border-top: 1px solid var(--border-default);
+        background: var(--bg-surface);
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
       .input-wrap {
         display: flex;
         gap: 8px;
         align-items: flex-end;
-        background: #1e293b;
-        border-radius: 10px;
+        background: var(--bg-input);
+        border-radius: var(--radius-md);
         padding: 8px 12px;
-        border: 1px solid #334155;
+        border: 1px solid var(--border-default);
+        transition:
+          border-color var(--transition-fast),
+          background var(--transition-theme);
       }
+
+      .input-wrap:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-glow);
+      }
+
       .input-wrap textarea {
         flex: 1;
         background: transparent;
         border: none;
         outline: none;
-        color: #e2e8f0;
-        font-size: 0.9rem;
+        color: var(--text-primary);
+        font-size: 0.88rem;
         resize: none;
-        font-family: inherit;
+        font-family: var(--font-body);
         line-height: 1.5;
         padding: 4px 0;
+        transition: color var(--transition-theme);
       }
+
       .input-wrap textarea::placeholder {
-        color: #475569;
+        color: var(--text-ghost);
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
       }
+
       .send-btn {
-        padding: 6px 16px;
-        border-radius: 6px;
+        padding: 8px 20px;
+        border-radius: var(--radius-sm);
         border: none;
         cursor: pointer;
-        background: #f59e0b;
-        color: #0a0f1a;
+        background: var(--accent);
+        color: var(--bg-base);
         font-weight: 700;
-        font-size: 0.8rem;
-        transition: all 0.15s ease;
+        font-size: 0.72rem;
+        font-family: var(--font-mono);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        transition: all var(--transition-fast);
         flex-shrink: 0;
+        min-height: 36px;
       }
+
+      .send-btn:hover:not(:disabled) {
+        filter: brightness(1.15);
+        box-shadow: 0 0 12px var(--accent-dim);
+      }
+
       .send-btn:disabled {
-        background: #334155;
-        color: #64748b;
+        background: var(--border-strong);
+        color: var(--text-ghost);
         cursor: default;
       }
+
+      /* ============================================
+         LOADING — Security Scan Indicator
+         ============================================ */
       .loading {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         padding: 14px 16px;
-        background: #0f172a;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius-md);
+        transition:
+          background var(--transition-theme),
+          border-color var(--transition-theme);
       }
+
+      .scan-bar {
+        width: 80px;
+        height: 3px;
+        background: var(--border-default);
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .scan-bar::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -30px;
+        width: 30px;
+        height: 100%;
+        background: var(--accent);
+        border-radius: 2px;
+        animation: scan-sweep 1.4s ease-in-out infinite;
+      }
+
+      @keyframes scan-sweep {
+        0% {
+          left: -30px;
+        }
+        100% {
+          left: 80px;
+        }
+      }
+
       .dot {
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: #f59e0b;
+        background: var(--accent);
         animation: pulse 1.2s ease-in-out infinite;
       }
+
       .dot:nth-child(2) {
         animation-delay: 0.2s;
       }
+
       .dot:nth-child(3) {
         animation-delay: 0.4s;
       }
+
       @keyframes pulse {
         0%,
         80%,
@@ -216,45 +718,66 @@
           transform: scale(1);
         }
       }
-      .status {
-        font-size: 0.7rem;
-        padding: 3px 8px;
-        border-radius: 4px;
+
+      /* ============================================
+         WELCOME PANEL
+         ============================================ */
+      .welcome-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        font-family: var(--font-body);
+        transition: color var(--transition-theme);
       }
-      .status.online {
-        background: #22c55e20;
-        color: #22c55e;
-        border: 1px solid #22c55e30;
+
+      .welcome-sub {
+        font-size: 0.82rem;
+        color: var(--text-tertiary);
+        margin-bottom: 20px;
+        font-family: var(--font-mono);
+        transition: color var(--transition-theme);
       }
-      .status.offline {
-        background: #ef444420;
-        color: #ef4444;
-        border: 1px solid #ef444430;
+
+      /* ============================================
+         RESPONSIVE
+         ============================================ */
+      @media (max-width: 600px) {
+        .quick-actions {
+          grid-template-columns: 1fr;
+        }
+
+        .message.user {
+          max-width: 95%;
+        }
+
+        .header {
+          padding: 0 12px;
+        }
+
+        .messages {
+          padding: 16px 12px;
+        }
+
+        .input-area {
+          padding: 10px 12px;
+        }
+
+        .theme-toggle button {
+          padding: 4px 6px;
+          min-width: 24px;
+          min-height: 24px;
+        }
       }
-      .message input[type="checkbox"] {
-        accent-color: #f59e0b;
-        margin-right: 6px;
-      }
-      .message hr {
-        border: none;
-        border-top: 1px solid #1e293b;
-        margin: 12px 0;
-      }
-      .message table {
-        border-collapse: collapse;
-        width: 100%;
-        margin: 8px 0;
-        font-size: 0.85rem;
-      }
-      .message th,
-      .message td {
-        border: 1px solid #334155;
-        padding: 6px 10px;
-        text-align: left;
-      }
-      .message th {
-        background: #1e293b;
-        color: #e2e8f0;
+
+      @media (max-width: 400px) {
+        .logo-text {
+          font-size: 0.75rem;
+        }
+
+        .logo-sub {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -263,26 +786,49 @@
       <div class="logo">
         <div class="logo-icon">IR</div>
         <div>
-          <div class="logo-text">Lexcom IRP Assistant</div>
-          <div class="logo-sub">NIST 800-61 Aligned</div>
+          <div class="logo-text">Lexcom IRP</div>
+          <div class="logo-sub">NIST 800-61</div>
         </div>
       </div>
-      <span id="status" class="status offline">checking...</span>
+      <div class="header-controls">
+        <div
+          class="theme-toggle"
+          role="radiogroup"
+          aria-label="Theme selection"
+        >
+          <button
+            type="button"
+            id="theme-dark"
+            aria-label="Dark theme"
+            onclick="setTheme('dark')"
+          >
+            D
+          </button>
+          <button
+            type="button"
+            id="theme-light"
+            aria-label="Light theme"
+            onclick="setTheme('light')"
+          >
+            L
+          </button>
+          <button
+            type="button"
+            id="theme-system"
+            aria-label="System theme"
+            onclick="setTheme('system')"
+          >
+            S
+          </button>
+        </div>
+        <span id="status" class="status offline">checking...</span>
+      </div>
     </div>
 
     <div class="messages" id="messages">
       <div style="padding: 20px 0">
-        <div
-          style="
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: #e2e8f0;
-            margin-bottom: 4px;
-          "
-        >
-          Report an incident
-        </div>
-        <div style="font-size: 0.85rem; color: #475569; margin-bottom: 20px">
+        <div class="welcome-title">Report an incident</div>
+        <div class="welcome-sub">
           Describe what happened and I'll generate an actionable response plan.
         </div>
         <div class="quick-actions" id="quickActions">
@@ -294,7 +840,7 @@
               )
             "
           >
-            Phishing — user clicked link
+            Phishing -- user clicked link
           </button>
           <button
             class="quick-btn"
@@ -324,7 +870,7 @@
               )
             "
           >
-            BEC — wire fraud attempt
+            BEC -- wire fraud attempt
           </button>
         </div>
       </div>
@@ -352,6 +898,51 @@
     <script>
       // Configuration — change this to your server URL
       const API_BASE = window.location.origin;
+
+      // Theme management
+      function setTheme(mode) {
+        if (mode === "system") {
+          localStorage.removeItem("gp-theme");
+          const prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          document.documentElement.setAttribute(
+            "data-theme",
+            prefersDark ? "dark" : "light",
+          );
+        } else {
+          localStorage.setItem("gp-theme", mode);
+          document.documentElement.setAttribute("data-theme", mode);
+        }
+        updateThemeToggle();
+      }
+
+      function updateThemeToggle() {
+        const saved = localStorage.getItem("gp-theme");
+        const current = saved || "system";
+        document.querySelectorAll(".theme-toggle button").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+        const activeId = `theme-${current}`;
+        const activeBtn = document.getElementById(activeId);
+        if (activeBtn) activeBtn.classList.add("active");
+      }
+
+      // Listen for system theme changes
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (e) => {
+          const saved = localStorage.getItem("gp-theme");
+          if (!saved) {
+            document.documentElement.setAttribute(
+              "data-theme",
+              e.matches ? "dark" : "light",
+            );
+          }
+        });
+
+      // Init theme toggle state on load
+      document.addEventListener("DOMContentLoaded", updateThemeToggle);
 
       // Markdown renderer
       marked.setOptions({ breaks: true, gfm: true });
@@ -401,7 +992,7 @@
         div.className = "loading";
         div.id = "loadingIndicator";
         div.innerHTML =
-          '<div class="dot"></div><div class="dot"></div><div class="dot"></div><span style="font-size:0.85rem;color:#64748b">Generating action plan...</span>';
+          '<div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="scan-bar"></div><span style="font-size:0.78rem;color:var(--text-tertiary);font-family:var(--font-mono)">Analyzing incident...</span>';
         messagesEl.appendChild(div);
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }

@@ -1,0 +1,13 @@
+.env
+.env.*
+data/chroma/
+__pycache__/
+*.py[cod]
+.git/
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+venv/
+.venv/

@@ -1,7 +1,11 @@
 Hey all — here's the gone-phishing repo for review:
 https://github.com/jryan5150/gone-phishing
 
-Quick context: this is an IRP engine that takes an incident description, matches it against NIST 800-61 playbooks via semantic search, and generates a role-assigned action plan. Built it from brainstorm to ship in one session to prove out the AI-orchestrated development workflow.
+Live demo: https://gone-phishing-irp-demo-production.up.railway.app
+
+Quick context: this is an IRP engine that takes an incident description, matches it against NIST 800-61 playbooks via semantic search, and generates a role-assigned action plan. Built it from brainstorm to ship in one evening session to prove out the AI-orchestrated development workflow.
+
+This is a demo — the production version would have Klint's actual playbooks in the /playbooks directory, full ConnectWise ticket integration wired up, N8N escalation chains firing real alerts, and the BYOM adapter pointed at whatever LLM the client wants. The bones are all here, the wiring guide covers how to connect everything. Idea is you drop in real playbooks, point it at CW, and it's live.
 
 Few things you'll notice I intentionally didn't do:
 
